@@ -143,7 +143,7 @@ Answer (include sources):"""
         for i, doc in enumerate(docs):
             source = doc.metadata.get("source", "unknown")
             formatted.append(f"[{i+1}] {source}:\n{doc.page_content}")
-        
+            
         return "\n\n".join(formatted)
 
     rag_chain = (

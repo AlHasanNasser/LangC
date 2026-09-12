@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import os
 from typing import Optional, Callable
 from functools import lru_cache
@@ -19,20 +20,6 @@ def _has_google_credentials() -> bool:
     return bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
 
 
-class _InMemorySemanticCache:
-    """Simple local cache used when no external semantic cache backend is configured."""
-
-    def __init__(self):
-        self._store = {}
-
-    def _normalize(self, key: str) -> str:
-        return key.strip().lower()
-
-    def get(self, key: str):
-        return self._store.get(self._normalize(key))
-
-    def set(self, key: str, value):
-        self._store[self._normalize(key)] = value
 
 
 class ModelRouter:
@@ -249,6 +236,84 @@ def demo_token_budgeting():
 
 
 
+
+
+
+
+
+
+class SemanticCache:
+    """Cache responses with semantic similarity matching."""
+
+    def __init__(self, similarity_threshold: float = 0.7):
+        self.cache = {}
+        self.threshold = similarity_threshold
+        self.embedder = GoogleGenerativeAIEmbeddings(model="gemini-embedding-001")
+
+    def _hash_query(self, query: str) -> str:
+        """Create hash of normalized query."""
+        normalized = query.lower().strip()
+        return hashlib.md5(normalized.encode()).hexdigest()
+
+    def get(self, query: str) -> Optional[str]:
+        """Get cached response if similar query exists."""
+        if not self.cache:
+            return None
+
+        query_embedding = self.embedder.embed_query(query)
+        query_norm = math.sqrt(sum(value * value for value in query_embedding))
+        if query_norm == 0:
+            return None
+
+        best_match = None
+        best_similarity = self.threshold
+        for cached_item in self.cache.values():
+            cached_embedding = cached_item["embedding"]
+            cached_norm = math.sqrt(sum(value * value for value in cached_embedding))
+            if cached_norm == 0:
+                continue
+
+            similarity = sum(
+                query_value * cached_value
+                for query_value, cached_value in zip(query_embedding, cached_embedding)
+            ) / (query_norm * cached_norm)
+            if similarity >= best_similarity:
+                best_similarity = similarity
+                best_match = cached_item["response"]
+
+        return best_match
+
+    def set(self, query: str, response: str):
+        """Cache a response."""
+        query_hash = self._hash_query(query)
+        self.cache[query_hash] = {
+            "query": query,
+            "response": response,
+            "embedding": self.embedder.embed_query(query),
+        }
+
+    def stats(self) -> dict:
+        return {"cached_queries": len(self.cache)}
+
+
+
+
+class _InMemorySemanticCache:
+    """Simple local cache used when no external semantic cache backend is configured."""
+
+    def __init__(self):
+        self._store = {}
+
+    def _normalize(self, key: str) -> str:
+        return key.strip().lower()
+
+    def get(self, key: str):
+        return self._store.get(self._normalize(key))
+
+    def set(self, key: str, value):
+        self._store[self._normalize(key)] = value
+
+
 class CachedLLM:
     """LLM wrapper with caching."""
 
@@ -258,7 +323,7 @@ class CachedLLM:
             if _has_google_credentials()
             else None
         )
-        self.cache = _InMemorySemanticCache()
+        self.cache = SemanticCache()
         self.cache_hits = 0
         self.cache_misses = 0
 
@@ -297,6 +362,7 @@ class CachedLLM:
         }
 
 
+
 def demo_caching():
     """Demonstrate caching."""
 
@@ -306,7 +372,7 @@ def demo_caching():
         "What is Python?",
         "What is JavaScript?",
         "What is Python?",  # Cache hit
-        "What is python?",  # Cache hit (normalized)
+        "tell me what is python?",  # Cache hit (normalized)
         "What is Rust?",
     ]
 
