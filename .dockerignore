@@ -1,0 +1,8 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+chromaDB/venv
+production-api/.env
+tests
+docs

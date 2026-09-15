@@ -7,9 +7,9 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    gemeni_api_key: str
-    primary_model: str = "genini-3.1-flash-lite"
-    fallback_model: str = "genini-3.5-flash-lite"
+    google_api_key: str
+    primary_model: str = "gemini-3.1-flash-lite"
+    fallback_model: str = "gemini-2.5-flash"
 
     langchain_tracing_v2: bool = True
     langchain_api_key: str = ""

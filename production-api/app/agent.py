@@ -39,19 +39,19 @@ class ProductionAgent:
     def __init__(self):
         settings = get_settings()
 
-        self.primary_llm = ChatOpenAI(
+        self.primary_llm = GoogleGenerativeAI(
             model=settings.primary_model,
             temperature=0,
             timeout=30,
             max_retries=0,  # We handle retries ourselves
-            api_key=settings.openai_api_key,
+            api_key=settings.google_api_key,
         )
-        self.fallback_llm = ChatOpenAI(
+        self.fallback_llm = GoogleGenerativeAI(
             model=settings.fallback_model,
             temperature=0,
             timeout=30,
             max_retries=0,
-            api_key=settings.openai_api_key,
+            api_key=settings.google_api_key,
         )
         self.max_retries = settings.max_retries
         self.graph = self._build_graph()
